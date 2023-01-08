@@ -58,6 +58,21 @@ Copy the trustdb and pubring files to password-store.  These contain the public 
 cp ~/.gnupg/trustdb.gpg ~/.gnupg/pubring.kbx ~/.password-store/config/gnupg-config/
 ```
 
+### Publishing GPG keys
+Publish public GPG keys to Ubuntu's keyserver for ease of sharing.
+
+Make sure `dirnmgr` is running with a socket in daemon mode.
+
+```
+dirnmgr --daemon
+```
+
+This will publish all your keys.
+
+```
+gpg --list-keys | grep '^pub' | awk '{print $2}' | cut -d/ -f2 | runmany 'gpg --keyserver keyserver.ubuntu.com --send-key $1'
+```
+
 ## Configure password-store
 
 Add the gpg identity to password-store so new passwords are encrypted for the new identity.
