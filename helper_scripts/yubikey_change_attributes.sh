@@ -344,7 +344,7 @@ if [ -n "${PUK_URL+x}" ]; then
       expect \"gpg/card>\"
       send -s \"url\r\"
       expect \"URL to retrieve public key:\"
-      send -s \"$PUK_URL\r\"
+      send -s \"\r\"
       expect {
         \"gpg/card>\"           { send -s \"q\r\" }
         \"Enter passphrase:\"   {

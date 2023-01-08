@@ -94,6 +94,8 @@ function usage()
      -c, --comment        provide comment used for PGP key. Defaults to an empty string.
          --username       provide username used for PGP key. Defaults to an empty string.
      -p, --password       provide password used for PGP key. If it is not provided, a random one is generated.
+         --current-user-pin  provide current user pin for the yubikey.
+         --current-admin-pin provide current admin pin for the yubikey.
      -u, --user-pin       provide new user pin for the yubikey. If none is provided, a random one is generated.
      -a, --admin-pin      provide new admin pin for the yubikey. If none is provided, a random one is generated.
      -y, --yes            skips prompts to reset the yubikey.
@@ -134,8 +136,7 @@ else
   TMPDIR=$(mktemp --tmpdir=/dev/shm --directory)
 fi
 
-# Set home directory for gnupg
-GNUPGHOME=$TMPDIR
+GNUPGHOME=$HOME/.gnupg
 
 # Set vars so we can check values later on
 FIRST_NAME=""
@@ -177,6 +178,16 @@ while [[ $# -gt 0 ]]; do
       ;;
     -p|--password*)
       KEY_PASS="$2" # Set the GPG password variable
+      shift
+      shift
+      ;;
+    --current-user-pin*)
+      CURRENT_USER_PIN="$2"
+      shift
+      shift
+      ;;
+    --current-admin-pin*)
+      CURRENT_ADMIN_PIN="$2"
       shift
       shift
       ;;
@@ -299,29 +310,6 @@ if [ "$yesmode" == "y" ]; then
 fi
 
 
-# Harden gpg configuration
-echo """
-personal-cipher-preferences AES256 AES192 AES
-personal-digest-preferences SHA512 SHA384 SHA256
-personal-compress-preferences ZLIB BZIP2 ZIP Uncompressed
-default-preference-list SHA512 SHA384 SHA256 AES256 AES192 AES ZLIB BZIP2 ZIP Uncompressed
-cert-digest-algo SHA512
-s2k-digest-algo SHA512
-s2k-cipher-algo AES256
-charset utf-8
-fixed-list-mode
-no-comments
-no-emit-version
-keyid-format 0xlong
-list-options show-uid-validity
-verify-options show-uid-validity
-with-fingerprint
-require-cross-certification
-no-symkey-cache
-use-agent
-throw-keyids
-""" > "$GNUPGHOME"/gpg.conf
-
 # Prompt to reset smartcard. Skip if -y or --yes is passed to the script
 yellow """
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -339,16 +327,16 @@ if [ "$yesmode" == "n" ]; then
 fi
 
 # Reset smartcard so we can upload the new keys (since the admin pin is reset)
-./helper_scripts/reset_smartcard.sh --gnupg-home "$GNUPGHOME" || { red "Failed to reset smartcard!";  exit 1; }
+./helper_scripts/reset_smartcard.sh || { red "Failed to reset smartcard!";  exit 1; }
 green "Smartcard successfully reset"
 
 # Create master PGP key
-bash ./helper_scripts/gen_key.sh --gnupg-home "$GNUPGHOME" \
+bash ./helper_scripts/gen_key.sh \
                                  --passphrase "$KEY_PASS" \
                                  --name "$KEY_NAME" \
                                  --email "$KEY_EMAIL" \
                                  --comment "$KEY_COMMENT" || { red "Failed to generate masterkey!"; exit 1; }
-KEY_ID=$(gpg --homedir "$GNUPGHOME" --list-secret-keys --with-colons | grep "$KEY_EMAIL" -B 2 | grep fpr | awk '{split($0,a,":"); print a[10]}')
+KEY_ID=$(gpg --list-secret-keys --with-colons | grep "$KEY_EMAIL" -B 2 | grep fpr | awk '{split($0,a,":"); print a[10]}')
 if [ "$KEY_ID" == "" ]; then
   red "Error creating masterkey! Exiting...."
   exit 1
@@ -356,47 +344,37 @@ fi
 green "User Master key successfully generated. Key ID: $KEY_ID"
 
 # Create subkeys and move them to smartcard
-bash ./helper_scripts/subkey_gen.sh --gnupg-home "$GNUPGHOME" \
+bash ./helper_scripts/subkey_gen.sh \
                                     --key-id "$KEY_ID" \
                                     --passphrase "$KEY_PASS" || { red "Failed to generate subkeys!"; exit 1; }
 green "Subkeys successfully generated"
 
-# Uncomment this if you would like to save the private keys!
-# gpg --homedir "$GNUPGHOME" --pinentry-mode loopback --passphrase "$KEY_PASS" --armor --export-secret-keys "$KEYID" > mastersub.key || { red "Unable to save PGP key password!"; exit 1; }
-# gpg --homedir "$GNUPGHOME" --pinentry-mode loopback --passphrase "$KEY_PASS" --armor --export-secret-subkeys "$KEYID" > sub.key || { red "Unable to save PGP key password!"; exit 1; }
-# echo "$KEY_PASS" | tee new_keypass.txt &>/dev/null || { red "Unable to save PGP key password!"; exit 1; }
+if [[ -z "${CURRENT_ADMIN_PIN:-}" ]]; then
+    yellow "Skipping Yubikey"
+    echo ""
+    green "Key password: \"$KEY_PASS\""
+    exit 0
+fi
 
-bash ./helper_scripts/key_to_card.sh --gnupg-home "$GNUPGHOME" \
+CURRENT_USER_PIN="${CURRENT_USER_PIN:-123456}"
+CURRENT_ADMIN_PIN="${CURRENT_ADMIN_PIN:-12345678}"
+
+bash ./helper_scripts/key_to_card.sh \
                                      --key-id "$KEY_ID" \
                                      --passphrase "$KEY_PASS" \
-                                     --admin-pin "12345678" || { red "Failed to move subkeys to card!"; exit 1; }
+                                     --admin-pin "$CURRENT_ADMIN_PIN" || { red "Failed to move subkeys to card!"; exit 1; }
 green "Subkeys successfully transferred to card"
 
 
 # Get GPG public key
 PUBLIC_KEY=$(gpg --homedir "$TMPDIR" --export-options export-minimal --armor --export "${KEY_ID[0]}")
 
-# Upload public key to keyserver
-yellow """Upload yubikey to public openPGP keyserver? (recommended if you will not be using this in a company)"""
-if [ "$yesmode" == "n" ]; then
-  read -r yn
-  case $yn in
-    [nN] ) red "Please make sure to save public key as it is not possible to extract it from the yubieky later!"
-    sleep 5;;
-    * )
-    CONFIRMATION_URL="$(echo "$PUBLIC_KEY" | curl -T - https://keys.openpgp.org/ | grep http)" || { red "Unable to upload public key to server!"; exit 1; };
-  esac
-else
-  CONFIRMATION_URL="$(echo "$PUBLIC_KEY" | curl -T - https://keys.openpgp.org/ | grep http)" || { red "Unable to upload public key to server!"; exit 1; };
-fi
-
-
 # Finally, change the attributes of the yubikey,
 # including the pin, name and puk url
 echo "Changing yubikey pins"
-./helper_scripts/yubikey_change_attributes.sh --gnupg-home "$GNUPGHOME" \
-                                              --current-user-pin "123456" \
-                                              --current-admin-pin "12345678" \
+./helper_scripts/yubikey_change_attributes.sh \
+                                              --current-user-pin "$CURRENT_USER_PIN" \
+                                              --current-admin-pin "$CURRENT_ADMIN_PIN" \
                                               --new-user-pin "$USER_PIN" \
                                               --new-admin-pin "$ADMIN_PIN" \
                                               --username "$KEY_USERNAME" \
