@@ -36,14 +36,14 @@ gpg --batch --delete-key "$(gpg --list-keys yk-$serial@$domain  | grep 'fingerpr
 Reset the opengpg app on the Yubikey.  Be generous with PIN retries to avoid resetting the key.
 ```
 ykman --device "$serial" openpgp reset
-ykman --device "$serial" openpgp access set-retries --force 99 99 99
+ykman --device "$serial" openpgp access set-retries --force --admin-pin 12345678 99 99 99
 ```
 
 ### Provision Yubikey
 
 Provision the Yubikey with custom PINs, gpg identity, and generate a gpg key that will be moved to the Yubikey.
 ```
-yubikey_provision.sh --first-name defn --last-name Nghiem --email "yk-$serial@$domain" --user-pin x --admin-pin x --yes
+yubikey_provision.sh --first-name defn --last-name Nghiem --email "yk-$serial@$domain" --current-admin-pin 12345678 --user-pin x --admin-pin x --yes
 ```
 
 Check that the secet keys in gpg have been moved to the Yubikey.  They show up with `ssb>`.  That `>` means the local secret keys are stubs and don't contain any secrets; we want the secrets to be on the Yubikey.
@@ -72,7 +72,7 @@ pass init $(cat .gpg-id)
 
 # Paper Key
 
-To generate a paper gpg key, omit the PINs.
+To generate a paper gpg key, omit the curent admin PIN.
 ```
 yubikey_provision.sh --first-name defn --last-name Nghiem --email "something-something@$domain" --yes
 ```
