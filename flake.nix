@@ -31,11 +31,11 @@
 
         propagatedBuildInputs = [
           pkgs.expect
-        ];
+        ] ++ pkgs.lib.attrsets.mapAttrsToList (name: value: value) commands;
       };
 
       commands = pkgs.lib.attrsets.mapAttrs
-        (name: value: (pkgs.writeShellScriptBin "this-${name}" value))
+        (name: value: (pkgs.writeShellScriptBin "${name}" value))
         scripts;
 
       scripts = {
