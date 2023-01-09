@@ -1,6 +1,7 @@
 {
   inputs = {
     dev.url = github:defn/pkg/dev-0.0.22?dir=dev;
+    gum.url = github:defn/pkg/gum-0.8.0-3?dir=gum;
   };
 
   outputs = inputs: { main = inputs.dev.main; } // inputs.dev.main rec {
