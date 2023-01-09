@@ -42,10 +42,10 @@
       scripts = {
         yk = ''
           set -efu
-          while true; do yk-init; done
+          while true; do ${commands.${"yk-init"}}/bin/yk-init; done
         '';
 
-        yk-init= ''
+        yk-init = ''
           set -efu;
 
           keys=()
