@@ -40,6 +40,49 @@
         scripts;
 
       scripts = {
+        yk = ''
+          set -efu
+          while true; do yk-init; done
+        '';
+
+        yk-init= ''
+          set -efu;
+
+          keys=()
+
+          save_ifs="$IFS" 
+          IFS="
+          "
+          for a in $(ykman list); do
+            keys+=("$a")
+          done
+
+          mark "yubikeys"
+          chose="$(gum choose ''${keys[@]})"
+          serial="$(echo "$chose" | awk '{print $NF}')"
+          keyserver_url="https://keyserver.ubuntu.com/pks/lookup?search=yk-$serial&fingerprint=on&op=index"
+          key_id="$(curl -sSL "https://keyserver.ubuntu.com/pks/lookup?search=yk-$serial&fingerprint=on&op=index" | perl -ne 'print "$1" if m{sig\s+sig.*?>(\w+)<}')"
+
+          if [[ -z "$key_id" ]]; then
+            echo "ERROR: no key_id for $chose" 1>&2
+            exit 0
+          fi
+
+          curl -sSL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x$key_id" > ".yk-$serial.asc"
+
+          mark "importing key yk-$serial"
+          gpg --import ".yk-$serial.asc"
+          rm -f ".yk-$serial.asc"
+
+          mark "list secret keys"
+          gpg --list-secret-keys "yk-$serial@defn.sh"
+
+          mark "list keys"
+          gpg --list-keys "yk-$serial@defn.sh"
+
+          echo "You chose $chose which has a serial number $serial, key_id $key_id"
+        '';
+
         yk-info = ''
           cat s | while read -r name serial; do for b in piv oath openpgp otp ""; do ykman --device $serial $b info > yk-$name-$b.txt 2>&1; done; done 
         '';
