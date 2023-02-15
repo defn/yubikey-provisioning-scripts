@@ -92,7 +92,7 @@ To generate a paper gpg key, omit the curent admin PIN.
 yubikey_provision.sh --first-name defn --last-name Nghiem --email "something-something@$domain" --yes
 ```
 
-Then export the secret to a file to reinitialize.
+Then export the secret to a file.
 ```
 gpg --export-secret-key -a --export-options export-backup KEY_ID
 ```
