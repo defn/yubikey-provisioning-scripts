@@ -48,7 +48,7 @@ yubikey_provision.sh --first-name defn --last-name Nghiem --email "yk-$serial@$d
 
 Check that the secet keys in gpg have been moved to the Yubikey.  They show up with `ssb>`.  That `>` means the local secret keys are stubs and don't contain any secrets; we want the secrets to be on the Yubikey.
 ```
-gpg --list-secret-keys
+gpg --list-secret-keys yk-$serial@$domain
 ```
 
 ### Backup GPG files
