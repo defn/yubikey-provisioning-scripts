@@ -38,13 +38,13 @@
 ##                                                       ##
 ###########################################################
 
-VERSION="1.2.5"
+VERSION="1.2.6"
 
 # Set the right user
 if [ -z ${SUDO_USER+x} ]; then
-  USER_NAME=$USER
+  USER_NAME=${USER}
 else
-  USER_NAME=$SUDO_USER
+  USER_NAME=${SUDO_USER}
 fi
 
 # If the script is interrupted, delete tmp dir
@@ -53,7 +53,7 @@ trap cleanup 1 2 3 6
 function cleanup(){
   yellow "\nKeyboard interrupt detected! Exiting..."
   yellow "Cleaning up tmpdir..."
-  rm -rf "$TMPDIR"
+  rm -rf "${TMPDIR}"
   exit 0
 }
 
@@ -84,7 +84,7 @@ function usage()
    cat << HEREDOC
    This script provisions a yubikey by generating a master key, 3 subkeys and moving the subkeys to the yubikey. Please read the documentation for more information.
 
-   Usage: $progname [-e|--email EMAIL_ADDRESS] [-u|--user-pin USER_PIN] [-a|--admin-pin ADMIN_PIN] [-y|--yes]
+   Usage: ${progname} [-e|--email EMAIL_ADDRESS] [-u|--user-pin USER_PIN] [-a|--admin-pin ADMIN_PIN] [-y|--yes]
 
    optional arguments:
      -h, --help           show this help message and exit.
@@ -107,7 +107,7 @@ progname=$(basename "$0")
 
 
 # Check that the script is NOT running as root
-if [ ! "$EUID" -ne 0 ]; then
+if [ ! "${EUID}" -ne 0 ]; then
   red "Please don't run this script as root!"
   usage
   exit 1
@@ -116,8 +116,8 @@ fi
 # Check that the dependent scripts are here
 declare -a script_list=('gen_key.sh' 'key_to_card.sh' 'subkey_gen.sh' 'yubikey_change_attributes.sh')
 for script in "${script_list[@]}"; do
-    if [ ! -f "./helper_scripts/$script" ]; then
-        red "$script missing"
+    if [ ! -f "./helper_scripts/${script}" ]; then
+        red "${script} missing"
         exit 1
     fi
 done
@@ -130,7 +130,7 @@ case "${unameOut}" in
     *)          machine="UNKNOWN:${unameOut}" && { red "Unknown OS!"; exit 1; }
 esac
 
-if [ "$machine" == "Mac" ]; then
+if [ "${machine}" == "Mac" ]; then
   TMPDIR=$(mktemp -d)
 else
   TMPDIR=$(mktemp --tmpdir=/dev/shm --directory)
@@ -206,7 +206,7 @@ while [[ $# -gt 0 ]]; do
       shift # pass argument
       ;;
     -v|--version)
-      echo $VERSION
+      echo ${VERSION}
       exit 0
       ;;
     -*)
@@ -226,11 +226,11 @@ set -- "${POSITIONAL_ARGS[@]}" # restore positional parameters
 if [ -z ${KEY_PASS+x} ]; then
   KEY_PASS=$(gpg --gen-random --armor 0 24)
 # Else if password is empty, prompt for confirmation
-elif [ "$KEY_PASS" == "" ]; then
+elif [ "${KEY_PASS}" == "" ]; then
   red "Provided password is empty! Continue? [yN] "
-  if [ "$yesmode" == 'n' ]; then
+  if [ "${yesmode}" == 'n' ]; then
     read -r yn
-    case $yn in
+    case ${yn} in
       [yY] )
       ;;
       * )
@@ -247,23 +247,23 @@ if [ -z ${KEY_EMAIL+x} ]; then
   while true; do
     read -rp "Please provide user email: " KEY_EMAIL
     # Check if it's a valid email...
-    if [[ ! "$KEY_EMAIL" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$  ]]; then
+    if [[ ! "${KEY_EMAIL}" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$  ]]; then
       yellow "Please provide a valid email: <username>@<domain>"
       continue
     else
       break
     fi
   done
-elif [[ ! "$KEY_EMAIL" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$ ]]; then
+elif [[ ! "${KEY_EMAIL}" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$ ]]; then
   red "Please provide a valid email: <username>@<domain>"
   exit 1
 fi
 
 # Set the name for the key in case first and last name are not provided
-if [ "$FIRST_NAME" == "" ] && [ "$LAST_NAME" == "" ]; then
-  KEY_NAME=$USER_NAME
+if [ "${FIRST_NAME}" == "" ] && [ "${LAST_NAME}" == "" ]; then
+  KEY_NAME=${USER_NAME}
 else
-  KEY_NAME="$FIRST_NAME $LAST_NAME"
+  KEY_NAME="${FIRST_NAME} ${LAST_NAME}"
 fi
 
 # If either the user pin or admin pin variables don't exist,
@@ -273,39 +273,39 @@ if [ -z ${USER_PIN+x} ]; then
 fi
 
 # Print instance information
-green "Key name:\t\t\t$KEY_NAME"
-green "Key email:\t\t\t$KEY_EMAIL"
-green "Key comment:\t\t\t$KEY_COMMENT"
-green "Key password: \t\t\t'$KEY_PASS'"
-green "New Smartcard user pin:\t$USER_PIN"
+green "Key name:\t\t\t${KEY_NAME}"
+green "Key email:\t\t\t${KEY_EMAIL}"
+green "Key comment:\t\t\t${KEY_COMMENT}"
+green "Key password: \t\t\t'${KEY_PASS}'"
+green "New Smartcard user pin:\t${USER_PIN}"
 if [ -z ${ADMIN_PIN+x} ]; then
   ADMIN_PIN=("$(( RANDOM % 10 ))$(( RANDOM % 10 ))$(( RANDOM % 10 ))$(( RANDOM % 10 ))$(( RANDOM % 10 ))$(( RANDOM % 10 ))$(( RANDOM % 10 ))$(( RANDOM % 10 ))")
-  green "New Smartcard admin pin:\t$ADMIN_PIN"
+  green "New Smartcard admin pin:\t${ADMIN_PIN}"
 fi
 
 # If it's running linux, we want to check the entropy level
 # This is not needed in MacOS as they persist entropy between boots.
-if [ "$machine" == "Linux" ]; then
+if [ "${machine}" == "Linux" ]; then
   # Add more entropy if less than 3k is available
   entropy_available=$(cat /proc/sys/kernel/random/entropy_avail)
   pool_size=$(cat /proc/sys/kernel/random/poolsize)
-  entropy_percentage=$(echo "($entropy_available*100/$pool_size)"|bc)
+  entropy_percentage=$(echo "(${entropy_available}*100/${pool_size})"|bc)
   while true; do
-    if [ "$entropy_percentage" -le "80" ];
+    if [ "${entropy_percentage}" -le "80" ];
       then
         echo "SCD RANDOM 512" | gpg-connect-agent | sudo tee /dev/random &>/dev/null
         entropy_available=$(cat /proc/sys/kernel/random/entropy_avail)
         pool_size=$(cat /proc/sys/kernel/random/poolsize)
-        entropy_percentage=$(echo "($entropy_available*100/$pool_size)"|bc)
-        echo -ne "Entropy available: \t$entropy_available/$pool_size\r"
+        entropy_percentage=$(echo "(${entropy_available}*100/${pool_size})"|bc)
+        echo -ne "Entropy available: \t${entropy_available}/${pool_size\r}"
     else
       break
     fi
   done
-  green "System entropy available: \t$entropy_available/$pool_size"
+  green "System entropy available: \t${entropy_available}/${pool_size}"
 fi
 
-if [ "$yesmode" == "y" ]; then
+if [ "${yesmode}" == "y" ]; then
   yellow "WARNING: Prompts disabled!"
 fi
 
@@ -317,9 +317,9 @@ yellow """
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   Continue? [Y/n] """
-if [ "$yesmode" == "n" ]; then
+if [ "${yesmode}" == "n" ]; then
   read -r yn
-  case $yn in
+  case ${yn} in
     [nN] ) echo exiting...;
       exit;;
     * ) : ;;
@@ -341,7 +341,7 @@ if [ "$KEY_ID" == "" ]; then
   red "Error creating masterkey! Exiting...."
   exit 1
 fi
-green "User Master key successfully generated. Key ID: $KEY_ID"
+green "User Master key successfully generated. Key ID: ${KEY_ID}"
 
 # Create subkeys and move them to smartcard
 bash ./helper_scripts/subkey_gen.sh \
@@ -367,7 +367,7 @@ green "Subkeys successfully transferred to card"
 
 
 # Get GPG public key
-PUBLIC_KEY=$(gpg --homedir "$TMPDIR" --export-options export-minimal --armor --export "${KEY_ID[0]}")
+PUBLIC_KEY=$(gpg --homedir "${TMPDIR}" --export-options export-minimal --armor --export "${KEY_ID[0]}")
 
 # Finally, change the attributes of the yubikey,
 # including the pin, name and puk url
@@ -385,14 +385,14 @@ green "Yubikey attributes successfully changed."
 
 echo ""
 # And print all the details:
-green "public key:\n$PUBLIC_KEY"
-green "Key password: \"$KEY_PASS\""
-green "User pin: $USER_PIN"
+green "public key:\n${PUBLIC_KEY}"
+green "Key password: \"${KEY_PASS}\""
+green "User pin: ${USER_PIN}"
 
 yellow "Please visit the following url to confirm the public key:"
-echo "$CONFIRMATION_URL"
+echo "${CONFIRMATION_URL}"
 
 # Remove TMPDIR
-green "Deleting TMPDIR: $TMPDIR"
+green "Deleting TMPDIR: ${TMPDIR}"
 stty sane
-rm -rf "$TMPDIR"
+rm -rf "${TMPDIR}"
