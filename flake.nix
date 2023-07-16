@@ -75,10 +75,10 @@
           rm -f ".yk-$serial.asc"
 
           mark "list secret keys"
-          gpg --list-secret-keys "yk-$serial@defn.sh"
+          gpg --list-secret-keys "yk-$serial@$domain"
 
           mark "list keys"
-          gpg --list-keys "yk-$serial@defn.sh"
+          gpg --list-keys "yk-$serial@$domain"
 
           echo "You chose $chose which has a serial number $serial, key_id $key_id"
         '';

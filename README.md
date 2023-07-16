@@ -104,3 +104,4 @@ See https://github.com/santiago-mooser/yubikey-provisioning-scripts for upstream
 ## Authors
 
 Santiago Espinosa Mooser - (yps@santiago-mooser.com)
+Cuong Nghiem - (iam@defn.sh)
