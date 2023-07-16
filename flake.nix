@@ -1,7 +1,7 @@
 {
   inputs = {
-    dev.url = github:defn/pkg/dev-0.0.22?dir=dev;
-    gum.url = github:defn/pkg/gum-0.8.0-3?dir=gum;
+    dev.url = github:defn/dev/pkg-dev-0.0.9?dir=m/pkg/dev;
+    gum.url = github:defn/dev/pkg-gum-0.10.0-10?dir=m/pkg/gum;
   };
 
   outputs = inputs: { main = inputs.dev.main; } // inputs.dev.main rec {
@@ -14,7 +14,7 @@
       version = builtins.readFile ./VERSION;
     };
 
-    handler = { pkgs, wrap, system, builders }: rec {
+    handler = { pkgs, wrap, system, config, commands }: rec {
       devShell = wrap.devShell {
         devInputs = (wrap.flakeInputs ++
           pkgs.lib.attrsets.mapAttrsToList (name: value: value) commands);
